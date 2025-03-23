@@ -6,7 +6,7 @@ from tkinter import messagebox
 from math import floor, ceil
 from PIL import Image, ImageTk
 import FAT32
-import NTFS
+import OS_Project2.NTFS as NTFS
 
 from wmi import WMI
 

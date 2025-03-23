@@ -5,7 +5,7 @@ import mimetypes
 from tkextrafont import Font
 from PIL import Image, ImageTk
 from tkinter import ttk
-from main import *
+from QuocTan.main import *
 
 ctk.set_default_color_theme("green")
 
