@@ -23,14 +23,6 @@ class Partition:
     def __str__(self):
         return f"Status: {self.status}\nType: {self.type}\nNumber of sectors: {self.number_of_sectors}\nStarting sector: {self.starting_sector}\n"
 
-
-class Node:
-    def __init__(self, my_id, name):
-        self.id = my_id
-        self.name = name
-        self.children = []
-
-
 class NTFS:
     def __init__(self, general_information: Partition):
         self.partition = general_information
@@ -46,6 +38,7 @@ class NTFS:
         self.master_file_table = []
         self.list_file = []
         self.read_master_file_table()
+        self.nodes = {}
 
     def read_master_file_table(self):
         fin = open(self.partition.location_of_disk, "rb")
@@ -79,51 +72,75 @@ class NTFS:
             if entry.get_file_name() == "$Volume":
                 self.volume_name = entry.attributes["VolumeName"].volume_name
 
-            if entry.get_file_name() != None:
-                if entry.check_file() and entry.get_file_name()[0] != "$" and not entry.is_deleted():
-                    self.list_file.append((entry.get_id(), entry.get_parent_id(), entry.get_file_name()))
-                    self.master_file_table.append(entry)
+            if not entry.is_deleted() and entry.get_file_name() != None:
+                self.list_file.append(
+                    (entry.get_id(), entry.get_parent_id(), entry.get_file_name())
+                )
+                self.master_file_table.append(entry)
         fin.close()
 
     def __str__(self):
         return f"{self.partition}\n{self.volume_boot_record}\n{''.join([str(entry) for entry in self.master_file_table])}"
 
     def build_tree(self):
-        print(self.list_file)
-        root = Node(5, self.volume_name)
+        # First create all nodes
         for id, parent_id, name in self.list_file:
-            if parent_id is None:
-                continue
-            if parent_id == 5:
-                root.children.append(Node(id, name))
-            else:
-                self.add_child(root, id, parent_id, name)
-        return root
+            self.nodes[id] = Node(id, self.volume_name if id == 5 else name)
 
-    def add_child(self, parent, id, parent_id, name):
-        if parent.id == parent_id:
-            parent.children.append(Node(id, name))
-            return True
-        for child in parent.children:
-            if self.add_child(child, id, parent_id, name):
-                return True
-        return False
+        # Then build parent-child relationships
+        for id, parent_id, name in self.list_file:
+            if parent_id in self.nodes and parent_id != id:  # Prevent self-parenting
+                self.nodes[parent_id].add_child(self.nodes[id])
 
-    def print_tree(self, node=None, level=0):
-        if node is None:
-            node = self.build_tree()
+        # Return the root node (assuming root has id=5)
+        return self.nodes.get(5, None)
 
-        prefix = "|-- " if level > 0 else ""  # Prefix chỉ có khi level > 0
-        print("    " * level + prefix + node.name)  # Sử dụng level trực tiếp thay vì level-1
-
-        for child in node.children:
-            self.print_tree(child, level + 1)
-
-    def print_info(self):
+    def print_tree(self):
+        root = self.build_tree()
+        if root:
+            root.print_tree()
+        else:
+            print("No root node found")
+            
+    def print_info_file(self):
         for entry in self.master_file_table:
-            print()
             print(entry.get_info())
 
+class Node:
+    def __init__(self, my_id, name):
+        self.id = my_id
+        self.name = name
+        self.children = []
+
+    def add_child(self, child):
+        self.children.append(child)
+
+    def get_id(self):
+        return self.id
+
+    def get_children(self):
+        return self.children
+
+    def print_tree(self, indent=0, parent_prefix=""):
+        """Recursively prints the tree structure with proper indentation"""
+        # Current line prefix
+        if indent == 0:
+            prefix = ""
+        else:
+            prefix = parent_prefix + ("└── " if self.is_last else "├── ")
+        
+        print(f"{prefix}{self.name}")
+
+        # Prepare prefix for children
+        if indent > 0:
+            child_prefix = parent_prefix + ("    " if self.is_last else "│   ")
+        else:
+            child_prefix = ""
+
+        # Print children
+        for i, child in enumerate(self.children):
+            child.is_last = (i == len(self.children) - 1)
+            child.print_tree(indent + 1, child_prefix)
 
 class NTFS_Volume_Boot_Record:
     def __init__(self, starting_byte, location_of_disk):
@@ -141,12 +158,7 @@ class NTFS_Volume_Boot_Record:
         self.number_of_bytes_per_entry_in_mft = 2 ** abs(tmp) if tmp < 0 else tmp
         fin.close()
 
-    def __str__(self):
-        return f"Number of bytes per sector: {self.number_of_bytes_per_sector}\nNumber of sectors per cluster: {self.number_of_sectors_per_cluster}\nNumber of sectors per track: {self.number_of_sectors_per_track}\nNumber of heads: {self.number_of_heads}\nTotal sectors: {self.total_sectors}\nStarting cluster of MFT: {self.starting_cluster_of_mft}\nStarting cluster of MFT mirror: {self.starting_cluster_of_mft_mirror}\nNumber of bytes per entry in MFT: {self.number_of_bytes_per_entry_in_mft}\n"
-
-
 class Atribute_Standard_Information:
-
     def convert_nano_second(self, byte):
         nano_second = int.from_bytes(byte, "little")
         timestamp_seconds = (nano_second - WIN_EPOCH) // 10000000
@@ -159,10 +171,6 @@ class Atribute_Standard_Information:
         self.modify_time = self.convert_nano_second(SI_bytes[8:16])
         self.mft_modify_time = self.convert_nano_second(SI_bytes[16:24])
         self.access_time = self.convert_nano_second(SI_bytes[24:32])
-
-    def __str__(self):
-        return f"Create time: {self.create_time}\n"
-
 
 class Atribute_File_Name:
     def convert_flag(self, byte):
@@ -188,10 +196,6 @@ class Atribute_File_Name:
         self.name = FN_bytes[66 : 66 + self.length_of_name * 2].decode("utf-16le")
         self.extension = self.name.split(".")[-1] if "." in self.name else None
 
-    def __str__(self):
-        return f"Parent ID: {self.parent_id}\nFlag: {self.flag}\nLength of name: {self.length_of_name}\nName: {self.name}\n"
-
-
 class Cluster_runlist:
     def __init__(self, runlist_bytes, bytes_per_cluster):
         self.bytes_per_cluster = bytes_per_cluster
@@ -209,7 +213,7 @@ class Cluster_runlist:
             offset_cluster = (header >> 4) & 0x0F
             length_cluster = int.from_bytes(rbytes[1 : 1 + length_cluster], "little")
             offset_cluster = int.from_bytes(
-                rbytes[1 + length_cluster : 1 + length_cluster + offset_cluster],
+                rbytes[length_cluster : 1 + length_cluster + offset_cluster],
                 "little",
             )
             self.runlist.append(
@@ -220,6 +224,8 @@ class Cluster_runlist:
             )
             rbytes = rbytes[1 + length_cluster + offset_cluster :]
 
+    def get_runlist(self):
+        return self.runlist
 
 class Atribute_Data:
     def __init__(
@@ -247,7 +253,7 @@ class Atribute_Data:
                 list_runlist = Cluster_runlist(runlist_bytes, bytes_per_cluster)
                 self.data = ""
                 total = self.data_size
-                for length, offset in list_runlist.runlist:
+                for length, offset in list_runlist.get_runlist():
                     fin = open(location_of_disk, "rb")
                     fin.seek(start_partition + offset)
                     if length > total:
@@ -260,14 +266,12 @@ class Atribute_Data:
     def __str__(self):
         return f"Data size: {self.data_size}\n"
 
-
 class Attribute_Volume_Name:
     def __init__(self, VN_bytes):
         self.volume_name = VN_bytes.decode("utf-16le")
 
     def __str__(self):
         return f"Volume name: {self.volume_name}\n"
-
 
 class NTFS_Master_File_Table_Entry:
     def convert_attr_type(self, value):
@@ -355,8 +359,6 @@ class NTFS_Master_File_Table_Entry:
         if "Data" in self.attributes:
             if self.get_extension() == "txt":
                 return self.attributes["Data"].data
-        else:
-            return ""
 
     def get_parent_id(self):
         if "FileName" in self.attributes:
@@ -364,7 +366,7 @@ class NTFS_Master_File_Table_Entry:
 
     def get_id(self):
         return self.id_of_mft_entry
-    
+
     def check_file(self):
         list_attr = ["Read Only", "Hidden", "System"]
         if "FileName" in self.attributes:
@@ -372,21 +374,20 @@ class NTFS_Master_File_Table_Entry:
                 if attr in self.attributes["FileName"].flag:
                     return False
         return True
-    
+
     def is_deleted(self):
         if self.state == 0x00 or self.state == 0x02:
             return True
         return False
-    
-    def __str__(self):
-        return f"Signature: {self.signature}\nStarting offset of first attribute: {self.starting_offset_of_first_attribute}\nState: {self.state}\nNumber of bytes in use: {self.number_of_bytes_in_use}\nNumber of bytes of MFT entry: {self.number_of_bytes_of_mft_entry}\nID of MFT entry: {self.id_of_mft_entry}\nAttributes: {''.join([str(attr) for attr in self.attributes.values()])}"
 
     def get_info(self):
-        # data = self.get_data()
+        data = self.get_data()
+        strdata = f"Data:\n{data}" if data else ""
         if "FileName" in self.attributes:
             return (
                 f"Name: {self.attributes['FileName'].name}\nAttributes: "
                 + ", ".join(attr for attr in self.attributes["FileName"].flag)
                 + "\n"
                 + f"Create time: {self.attributes['StandardInformation'].create_time}\nModify time: {self.attributes['StandardInformation'].modify_time}\nSize: {self.get_size()} bytes\nExtension: {self.get_extension()}\n"
+                + strdata
             )

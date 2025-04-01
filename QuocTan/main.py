@@ -21,6 +21,6 @@ for i in range(4):
     partition.append(Partition(par, usb.DeviceID))
     if partition[i].type == "NTFS":
         partition[i] = NTFS(partition[i])
+        partition[i].print_info_file()
         partition[i].print_tree()
-        partition[i].print_info()
 fin.close()
