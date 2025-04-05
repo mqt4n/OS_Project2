@@ -71,15 +71,13 @@ class NTFS:
             if entry.get_file_name() == "$Volume":
                 self.volume_name = entry.attributes["VolumeName"].volume_name
 
-            if not entry.is_deleted() and entry.get_file_name() != None:
+            if not entry.is_deleted() and entry.get_file_name() != None and entry.check_file():
                 self.list_file.append(
                     (entry.get_id(), entry.get_parent_id(), entry.get_file_name())
                 )
                 self.master_file_table.append(entry)
+        self.list_file.append((5,None, self.volume_name))  # Add root node
         fin.close()
-
-    def __str__(self):
-        return f"{self.partition}\n{self.volume_boot_record}\n{''.join([str(entry) for entry in self.master_file_table])}"
 
     def build_tree(self):
         # First create all nodes
@@ -104,6 +102,7 @@ class NTFS:
     def print_info_file(self):
         for entry in self.master_file_table:
             print(entry.get_info())
+            print()
 
 class Node:
     def __init__(self, my_id, name):
@@ -204,21 +203,23 @@ class Cluster_runlist:
 
     def read_runlist(self):
         rbytes = self.runlist_bytes
+        real_offset = 0
         while True:
             header = int.from_bytes(rbytes[0:1], "little")
             if not header:
                 break
             length_cluster = header & 0x0F
             offset_cluster = (header >> 4) & 0x0F
-            length_cluster = int.from_bytes(rbytes[1 : 1 + length_cluster], "little")
-            offset_cluster = int.from_bytes(
-                rbytes[length_cluster : 1 + length_cluster + offset_cluster],
+            length = int.from_bytes(rbytes[1 : 1 + length_cluster], "little")
+            offset = int.from_bytes(
+                rbytes[length_cluster+1 : 1 + length_cluster + offset_cluster],
                 "little",
             )
+            real_offset += offset
             self.runlist.append(
                 (
-                    length_cluster * self.bytes_per_cluster,
-                    offset_cluster * self.bytes_per_cluster,
+                    length * self.bytes_per_cluster,
+                    real_offset * self.bytes_per_cluster,
                 )
             )
             rbytes = rbytes[1 + length_cluster + offset_cluster :]
@@ -241,13 +242,14 @@ class Atribute_Data:
         if resident == 0:
             self.data_size = content_size
             if extension == "txt":
-                self.data = data_bytes[
-                    content_offset : content_offset + content_size
-                ].decode("utf-8")
+                self.data = data_bytes[content_offset : content_offset + content_size].decode("utf-8")
+                
         else:
             self.data_size = int.from_bytes(data_bytes[48:56], "little")
             if extension == "txt":
                 offset_to_runlist = int.from_bytes(data_bytes[32:34], "little")
+                name_length =  data_bytes[9]
+                offset_to_runlist += name_length*2
                 runlist_bytes = data_bytes[offset_to_runlist:]
                 list_runlist = Cluster_runlist(runlist_bytes, bytes_per_cluster)
                 self.data = ""
@@ -261,9 +263,6 @@ class Atribute_Data:
                         total -= length
                     self.data += fin.read(length).decode("utf-8")
                     fin.close()
-
-    def __str__(self):
-        return f"Data size: {self.data_size}\n"
 
 class Attribute_Volume_Name:
     def __init__(self, VN_bytes):
