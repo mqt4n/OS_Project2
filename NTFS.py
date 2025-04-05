@@ -242,7 +242,10 @@ class Atribute_Data:
         if resident == 0:
             self.data_size = content_size
             if extension == "txt":
-                self.data = data_bytes[content_offset : content_offset + content_size].decode("utf-8")
+                try:
+                    self.data = data_bytes[content_offset : content_offset + content_size].decode("utf-8")
+                except UnicodeDecodeError:
+                    self.data = "Error: Unable to decode data"
                 
         else:
             self.data_size = int.from_bytes(data_bytes[48:56], "little")
