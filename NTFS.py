@@ -3,6 +3,27 @@ from datetime import datetime
 SECTOR_SIZE = 512
 WIN_EPOCH = 116444736000000000
 
+def get_parent_name(parent_id, list_file, volume_name):
+    for entry in list_file:
+        if parent_id == 5:
+            return volume_name
+        if parent_id == entry.get_id():
+            return entry.get_file_name()
+    return None
+        
+def get_infomation(entry, list_file, volume_name):
+    return {
+        "ID": entry.get_file_name(),
+        "Name": entry.get_file_name(),
+        "Is Folder": entry.is_folder(),
+        "Parent ID": get_parent_name(entry.get_parent_id(), list_file, volume_name),
+        "Size": entry.get_size(),
+        "Create Time": entry.get_create_time(),
+        "Modify Time": entry.get_modify_time(),
+        "Data": entry.get_data(),
+    }
+
+
 class Partition:
     def __init__(self, description_in_mbr, location_of_disk):
         self.status = (
@@ -71,7 +92,7 @@ class NTFS:
             if entry.get_file_name() == "$Volume":
                 self.volume_name = entry.attributes["VolumeName"].volume_name
 
-            if not entry.is_deleted() and entry.get_file_name() != None and entry.check_file():
+            if not entry.is_deleted() and entry.get_file_name() != None:
                 self.list_file.append(
                     (entry.get_id(), entry.get_parent_id(), entry.get_file_name())
                 )
@@ -103,6 +124,24 @@ class NTFS:
         for entry in self.master_file_table:
             print(entry.get_info())
             print()
+            
+    def get_list_file(self):
+        tmp = []
+        tmp.append(
+            {
+                "ID": self.volume_name,
+                "Name": self.volume_name,
+                "Is Folder": True,
+                "Parent ID": None,
+                "Size": None,
+                "Create Time": None,
+                "Modify Time": None,
+                "Data": None,
+            }
+        )
+        for entry in self.master_file_table:
+            tmp.append(get_infomation(entry, self.master_file_table, self.volume_name))
+        return tmp
 
 class Node:
     def __init__(self, my_id, name):
@@ -357,11 +396,15 @@ class NTFS_Master_File_Table_Entry:
         if "FileName" in self.attributes:
             return self.attributes["FileName"].extension
 
+    def is_folder(self):
+        if "FileName" in self.attributes:
+            return "Directory" in self.attributes["FileName"].flag
+        
     def get_data(self):
         if "Data" in self.attributes:
             if self.get_extension() == "txt":
                 return self.attributes["Data"].data
-
+    
     def get_parent_id(self):
         if "FileName" in self.attributes:
             return self.attributes["FileName"].parent_id
@@ -377,6 +420,14 @@ class NTFS_Master_File_Table_Entry:
                     return False
         return True
 
+    def get_create_time(self):
+        if "StandardInformation" in self.attributes:
+            return self.attributes["StandardInformation"].create_time
+        
+    def get_modify_time(self):
+        if "StandardInformation" in self.attributes:
+            return self.attributes["StandardInformation"].modify_time
+    
     def is_deleted(self):
         if self.state == 0x00 or self.state == 0x02:
             return True
@@ -393,3 +444,4 @@ class NTFS_Master_File_Table_Entry:
                 + f"Create time: {self.attributes['StandardInformation'].create_time}\nModify time: {self.attributes['StandardInformation'].modify_time}\nSize: {self.get_size()} bytes\nExtension: {self.get_extension()}\n"
                 + strdata
             )
+    
