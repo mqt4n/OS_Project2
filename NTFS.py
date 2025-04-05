@@ -245,7 +245,7 @@ class Atribute_Data:
                 try:
                     self.data = data_bytes[content_offset : content_offset + content_size].decode("utf-8")
                 except UnicodeDecodeError:
-                    self.data = "Error: Unable to decode data"
+                    self.data = data_bytes[content_offset : content_offset + content_size].decode("utf-16le")
                 
         else:
             self.data_size = int.from_bytes(data_bytes[48:56], "little")
@@ -264,7 +264,11 @@ class Atribute_Data:
                         length = total
                     else:
                         total -= length
-                    self.data += fin.read(length).decode("utf-8")
+                    tmp = fin.read(length)
+                    try:
+                        self.data += tmp.decode("utf-8")
+                    except UnicodeDecodeError:
+                        self.data += tmp.decode("utf-16le")
                     fin.close()
 
 class Attribute_Volume_Name:
