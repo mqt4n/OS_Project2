@@ -243,7 +243,7 @@ class Atribute_Data:
             self.data_size = content_size
             if extension == "txt":
                 try:
-                    self.data = data_bytes[content_offset : content_offset + content_size].decode("utf-8")
+                    self.data = data_bytes[content_offset : content_offset + content_size].decode()
                 except UnicodeDecodeError:
                     self.data = data_bytes[content_offset : content_offset + content_size].decode("utf-16le")
                 
@@ -266,7 +266,7 @@ class Atribute_Data:
                         total -= length
                     tmp = fin.read(length)
                     try:
-                        self.data += tmp.decode("utf-8")
+                        self.data += tmp.decode()
                     except UnicodeDecodeError:
                         self.data += tmp.decode("utf-16le")
                     fin.close()
@@ -274,9 +274,6 @@ class Atribute_Data:
 class Attribute_Volume_Name:
     def __init__(self, VN_bytes):
         self.volume_name = VN_bytes.decode("utf-16le")
-
-    def __str__(self):
-        return f"Volume name: {self.volume_name}\n"
 
 class NTFS_Master_File_Table_Entry:
     def convert_attr_type(self, value):
