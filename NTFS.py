@@ -3,6 +3,16 @@ from datetime import datetime
 SECTOR_SIZE = 512
 WIN_EPOCH = 116444736000000000
 
+def get_total_size(entry, list_file, volume_name):
+    total_size = 0
+    if entry.is_folder():
+        for child in list_file:
+            if entry.get_id() == child.get_parent_id():
+                total_size += get_total_size(child, list_file, volume_name)
+    else:
+        total_size += entry.get_size()
+    return total_size
+
 def get_parent_name(parent_id, list_file, volume_name):
     for entry in list_file:
         if parent_id == 5:
@@ -17,10 +27,11 @@ def get_infomation(entry, list_file, volume_name):
         "Name": entry.get_file_name(),
         "Is Folder": entry.is_folder(),
         "Parent ID": get_parent_name(entry.get_parent_id(), list_file, volume_name),
-        "Size": entry.get_size(),
+        "Size": get_total_size(entry, list_file, volume_name),
         "Create Time": entry.get_create_time(),
         "Modify Time": entry.get_modify_time(),
         "Data": entry.get_data(),
+        "Attribute": entry.get_attributes(),
     }
 
 
@@ -137,10 +148,12 @@ class NTFS:
                 "Create Time": None,
                 "Modify Time": None,
                 "Data": None,
+                "Attribute": None,
             }
         )
         for entry in self.master_file_table:
-            tmp.append(get_infomation(entry, self.master_file_table, self.volume_name))
+            if entry.check_file():
+                tmp.append(get_infomation(entry, self.master_file_table, self.volume_name))
         return tmp
 
 class Node:
@@ -404,6 +417,7 @@ class NTFS_Master_File_Table_Entry:
         if "Data" in self.attributes:
             if self.get_extension() == "txt":
                 return self.attributes["Data"].data
+        return 0
     
     def get_parent_id(self):
         if "FileName" in self.attributes:
@@ -432,16 +446,7 @@ class NTFS_Master_File_Table_Entry:
         if self.state == 0x00 or self.state == 0x02:
             return True
         return False
-
-    def get_info(self):
-        data = self.get_data()
-        strdata = f"Data:\n{data}" if data else ""
-        if "FileName" in self.attributes:
-            return (
-                f"Name: {self.attributes['FileName'].name}\nAttributes: "
-                + ", ".join(attr for attr in self.attributes["FileName"].flag)
-                + "\n"
-                + f"Create time: {self.attributes['StandardInformation'].create_time}\nModify time: {self.attributes['StandardInformation'].modify_time}\nSize: {self.get_size()} bytes\nExtension: {self.get_extension()}\n"
-                + strdata
-            )
+    
+    def get_attributes(self):
+        return self.attributes["FileName"].flag if "FileName" in self.attributes else None
     
