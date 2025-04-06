@@ -21,12 +21,12 @@ def get_parent_name(parent_id, list_file, volume_name):
             return entry.get_file_name()
     return None
         
-def get_infomation(entry, list_file, volume_name):
+def get_infomation(entry, list_file, volume_name, counter):
     return {
-        "ID": entry.get_file_name(),
+        "ID": str(counter)+"NTFS"+str(entry.get_id()),
         "Name": entry.get_file_name(),
         "Is Folder": entry.is_folder(),
-        "Parent ID": get_parent_name(entry.get_parent_id(), list_file, volume_name),
+        "Parent ID": str(counter)+"NTFS"+str(entry.get_parent_id()),
         "Size": get_total_size(entry, list_file, volume_name),
         "Create Time": entry.get_create_time(),
         "Modify Time": entry.get_modify_time(),
@@ -55,7 +55,9 @@ class Partition:
         return f"Status: {self.status}\nType: {self.type}\nNumber of sectors: {self.number_of_sectors}\nStarting sector: {self.starting_sector}\n"
 
 class NTFS:
+    counter = 0
     def __init__(self, general_information: Partition):
+        NTFS.counter += 1
         self.partition = general_information
         self.start_partition = self.partition.starting_sector * SECTOR_SIZE
         self.volume_boot_record = NTFS_Volume_Boot_Record(
@@ -140,7 +142,7 @@ class NTFS:
         tmp = []
         tmp.append(
             {
-                "ID": self.volume_name,
+                "ID": str(NTFS.counter)+"NTFS"+str(5),
                 "Name": self.volume_name,
                 "Is Folder": True,
                 "Parent ID": None,
@@ -153,7 +155,7 @@ class NTFS:
         )
         for entry in self.master_file_table:
             if entry.check_file():
-                tmp.append(get_infomation(entry, self.master_file_table, self.volume_name))
+                tmp.append(get_infomation(entry, self.master_file_table, self.volume_name, NTFS.counter))
         return tmp
 
 class Node:
@@ -297,7 +299,7 @@ class Atribute_Data:
                 try:
                     self.data = data_bytes[content_offset : content_offset + content_size].decode()
                 except UnicodeDecodeError:
-                    self.data = data_bytes[content_offset : content_offset + content_size].decode("utf-16le")
+                    self.data = data_bytes[content_offset : content_offset + content_size].decode(errors='ignore')
                 
         else:
             self.data_size = int.from_bytes(data_bytes[48:56], "little")
@@ -320,7 +322,7 @@ class Atribute_Data:
                     try:
                         self.data += tmp.decode()
                     except UnicodeDecodeError:
-                        self.data += tmp.decode("utf-16le")
+                        self.data += tmp.decode(errors='ignore')
                     fin.close()
 
 class Attribute_Volume_Name:
