@@ -3,49 +3,6 @@ from enum import Flag, auto
 from datetime import datetime 
 import re 
 
-c = wmi.WMI() 
-
-def makeTree(arg, volume):
-	def printTree(entry, prefix="", last=False):
-		print(prefix + ("|--") + entry["Name"])
-		
-		# special file
-		if entry["Flags"] & 0b100000: return 
-		
-		volume.changeDirectory(entry["Name"])
-		entries = volume.getDirectory()
-
-		for i in range(len(entries)):
-			if entries[i]["Name"] in [".", ".."]: continue
-			char = "    " if last else "|    " 
-			printTree(entries[i], prefix + char, i == len(entries) - 1)
-		volume.changeDirectory("..")
-	
-	cwd = volume.getCWD()
-	try:
-		if arg != "":
-			volume.changeDirectory(arg)
-			print(volume.getCWD())
-		else:
-			print(cwd)
-		entries = volume.getDirectory()
-		for i in range(len(entries)):
-			if entries[i]["Name"] in [".", ".."]: continue 
-			printTree(entries[i], "", i == len(entries) - 1)
-	except Exception as e:
-		raise e
-	finally:
-		volume.changeDirectory(cwd) 
-
-def getUSB():
-	usb = None 
-	for disk in c.Win32_DiskDrive():
-		if disk.MediaType == "Removable Media":
-			usb = disk
-	
-	return usb 
-
-
 class FAT:
 	def __init__(self, data):
 		self.data = data 
@@ -67,7 +24,7 @@ class Attribute(Flag):
 	READ_ONLY = auto() 
 	HIDDEN = auto()
 	SYSTEM = auto() 
-	VOLLABLE = auto() 
+	VOLLABEL = auto() 
 	DIRECTORY = auto() 
 	ARCHIVE = auto() 
 
@@ -81,7 +38,7 @@ class ENTRY:
 		self.is_subEntry = self.data[0xB:0xC] == b'\x0f' 
 		self.is_delete = self.data[0] == 0xe5
 		self.is_empty = self.data[0] == 0x00 
-		self.is_label = Attribute.VOLLABLE in Attribute(int.from_bytes(self.data[0xB:0xC], byteorder='little'))
+		self.is_label = Attribute.VOLLABEL in Attribute(int.from_bytes(self.data[0xB:0xC], byteorder='little'))
 
 		if not self.is_subEntry:
 			self.name = self.data[0x00:0x8]
@@ -92,7 +49,7 @@ class ENTRY:
 				return 
 			
 			self.attribute = Attribute(int.from_bytes(self.data[0xB:0xC], byteorder='little'))
-			if Attribute.VOLLABLE in self.attribute:
+			if Attribute.VOLLABEL in self.attribute:
 				self.is_label = True 
 				return 
 			
@@ -144,29 +101,33 @@ class ENTRY:
 		self.timeUpdate = int.from_bytes(self.data[0x16:0x18], byteorder='little')
 		self.Update = int.from_bytes(self.data[0x18:0x1A], byteorder='little')
 
-		self.dataCreated = self.extractDateTime(self.timeDataCreated, self.dateDateCreated)
+		h = (self.timeDataCreated & 0b111110000000000000000000) >> 19
+		m = (self.timeDataCreated & 0b000001111110000000000000) >> 13
+		s = (self.timeDataCreated & 0b000000000001111110000000) >> 7
+		ms =(self.timeDataCreated & 0b000000000000000001111111)
+		year = 1980 + ((self.dateDateCreated & 0b1111111000000000) >> 9)
+		mon = (self.dateDateCreated & 0b0000000111100000) >> 5
+		day = self.dateDateCreated & 0b0000000000011111
 
-		self.lastAccessed = self.extractDateTime(None, self.datelastAccessed) 
-		self.dateUpdate = self.extractDateTime(self.timeUpdate, self.Update) 
+		self.dateCreated = datetime(year, mon, day, h, m, s)
+		self.dateCreated.strftime("%A, %B %d, %Y, %I:%M:%S %p")
 
+		year = 1980 + ((self.datelastAccessed & 0b1111111000000000) >> 9)
+		mon = (self.datelastAccessed & 0b0000000111100000) >> 5
+		day = self.datelastAccessed & 0b0000000000011111
 
+		self.lastAccessed = datetime(year, mon, day)
 
-	def extractDateTime(self, dataTime, dataDate):
-		if dataTime is None: return None 
+		h = (self.timeUpdate & 0b1111100000000000) >> 11
+		m = (self.timeUpdate & 0b0000011111100000) >> 5
+		s = (self.timeUpdate & 0b0000000000011111) * 2
+		year = 1980 + ((self.Update & 0b1111111000000000) >> 9)
+		mon = (self.Update & 0b0000000111100000) >> 5
+		day = self.Update & 0b0000000000011111
 
-		hours = (dataTime & 0b111110000000000000000000) >> 19
-		minutes = (dataTime & 0b000001111110000000000000) >> 13 
-		seconds = (dataTime & 0b000000000001111110000000) >> 7 
-		milliSeconds = (dataTime & 0b000000000000000001111111)
-		
-		year = 1980 + ((dataDate & 0b111111100000000) >> 9 )
-		month = (dataDate & 0b0000000111100000) >> 5 
-		day = (dataDate & 0b0000000000011111)
+		self.dateUpdate = datetime(year, mon, day, h, m, s)
+		self.dateUpdate.strftime("%A, %B %d, %Y, %I:%M:%S %p")
 
-		if dataDate is None:
-			return datetime(year, month, day) 
-		
-		return datetime(year, month, day, hours, minutes, seconds)
 
 class RDET:
 	def __init__(self, data):
@@ -215,10 +176,10 @@ class RDET:
 		return None 
 
 class FAT32: 
-	def __init__(self, volumeName, sector_starting) -> None:
-		self.volume = volumeName
-		self.cwd = [self.volume]
-		self.usb = getUSB() 
+	def __init__(self, sector_starting, usb) -> None:
+		self.sectorStarting = sector_starting
+		self.cwd =[]
+		self.usb = usb
 		self.fin = open(self.usb.DeviceID, "rb") 
 		self.fin.seek(sector_starting * 512) 
 		self.data = self.fin.read(512) 
@@ -235,7 +196,7 @@ class FAT32:
 		self.startSectorData = self.bootSector['Starting Sector of Data'] 
 
 		# Read FAT
-		self.tmp = self.fin.read(self.bytePerSector * (self.reservedSectors - 1))
+		self.fin.seek((self.sectorStarting + self.reservedSectors) * self.bytePerSector)
 
 		fatSize = self.bytePerSector * self.sectorPerFat
 		# Number of fat 
@@ -247,8 +208,12 @@ class FAT32:
 		clusterIndex = self.bootSector['Starting Cluster of RDET']
 		self.RDET = RDET(self.getClusterS(clusterIndex)) 
 		self.DET = {} 
-		# DET information of folder not like RDET only manager file and directory entry in the root directory 
+		# DET stores information about subfolders, unlike RDET which only manages entries in the root directory.
 		self.DET[clusterIndex] = self.RDET
+
+		for item in self.RDET.entries:
+			if item.is_label and not item.is_subEntry:
+				self.volume = item.name
 
 
 	def getDataBootSector(self):
@@ -272,12 +237,11 @@ class FAT32:
 		for i in clusterList:
 			sectorIndex = self.clusterToSectorIndex(i)
 			# first sector do not stored data => skip them 
-			self.fin.seek((sectorIndex + 128) * self.bytePerSector) 
+			self.fin.seek((sectorIndex + self.sectorStarting) * self.bytePerSector) 
 			data += self.fin.read(self.bytePerSector * self.sectorPerCluster)
 		return data  
 	
 	def isFAT32(self):
-		# print(self.bootSector["FAT Name"])
 		fat_name = self.bootSector.get("FAT Name", "").strip().upper()
 		return "FAT32" == fat_name
 		
@@ -294,10 +258,9 @@ class FAT32:
 		path = self.parsePath(path) 
 
 		if path[0] == self.volume:
-			CDET = self.DET[self.bootSector["Starting Cluster of RDET"]]
+			# CDET = self.DET[self.bootSector["Starting Cluster of RDET"]]
 			path.pop(0) 
-		else:
-			CDET = self.RDET
+		CDET = self.RDET
 		
 		for dir in path:
 			entry = CDET.findEntry(dir) 
@@ -325,18 +288,25 @@ class FAT32:
 	
 	def getDirectory(self, path = ""):
 		try:
+			ret = []
 			if path != "":
 				CDET = self.visitDirectory(path) 
 				entryList = CDET.getActiveEntries()
 			else:
 				entryList = self.RDET.getActiveEntries() 
-			ret = [] 
 			for entry in entryList:
 				obj = {}
+				obj["ID"] = ""
 				obj["Flags"] = entry.attribute.value
+				obj["Date Created"] = entry.dateCreated
 				obj["Date Modified"] = entry.dateUpdate
-				obj["Size"] = entry.sizeOfArchive
+				obj["Size"] = entry.sizeOfArchive 
 				obj["Name"] = entry.name 
+				obj["Path"] = ""
+				obj["Parent"] = self.volume
+				obj["content"] = ""
+				obj["Attribute"] =  [attr.name for attr in Attribute if attr in entry.attribute]
+
 				if entry.startCluster == 0:
 					obj["sector"] = (entry.startCluster + 2) * self.sectorPerCluster
 				else:
@@ -383,21 +353,65 @@ class FAT32:
 		if entry.is_directory():
 			raise Exception("Is Directory")
 		
-		ind = self.FATList[0].getClustersChain(entry.startCluster)
 		str = ""
 		size = entry.sizeOfArchive
+		ind = 0
+		if size > 0: 
+			ind = self.FATList[0].getClustersChain(entry.startCluster)
+			for i in ind:
+				if size <= 0: break
+				offset = self.clusterToSectorIndex(i) 
+				self.fin.seek((offset + self.sectorStarting) * self.bytePerSector)
+				rawData = self.fin.read(min(self.sectorPerCluster * self.bytePerSector, size))
+				size -= self.sectorPerCluster * self.bytePerSector
 
-		for i in ind:
-			if size <= 0: break 
-			offset = self.clusterToSectorIndex(i) 
-			self.fin.seek((offset + 128) * self.bytePerSector)
-			rawData = self.fin.read(min(self.sectorPerCluster * self.bytePerSector, size))
-			size -= self.sectorPerCluster * self.bytePerSector
-
-			try:
-				str += rawData.decode()
-			except Exception as e:
-				raise e
+				try:
+					str += rawData.decode()
+				except Exception as e:
+					raise e
 		return str 
 
-		
+	def applyGUI(self, num):
+		entries = []
+		stored = []
+
+		obj = {
+			"ID": "FAT32_" + str(num),
+			"Flags": 16, 
+			"Date Created": None,
+			"Date Modified": None, 
+			"Size": 0,
+			"Name": self.volume,
+			"Path": "",
+			"Parent": None,
+			"content": "",
+			"Attribute": None
+		}
+		num += 1
+
+		entries.append(obj)
+		stored.append(obj) 
+
+		while len(stored) != 0:
+			entry = stored.pop(0)
+			entry["ID"] = "FAT32_" + str(num)
+			num += 1
+			
+			if entry["Path"] == "":
+				entry["Path"] = entry["Name"]
+			else:
+				entry["Path"] += "//" + entry["Name"]
+			
+			if entry["Flags"] == 16:
+				for item in self.getDirectory(entry["Path"]):
+					if item["Name"] not in [".", ".."]:
+						item["Parent"] = entry["ID"]
+						entries.append(item)
+						stored.append(item) 
+						item["Path"] = entry["Path"]
+			elif entry["Flags"] == 32:
+				entry["content"] = self.getText(entry["Path"])
+
+		return num, entries
+
+				
