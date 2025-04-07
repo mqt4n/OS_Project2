@@ -7,7 +7,7 @@ from PIL import Image, ImageTk
 import math
 from NTFS import *
 from FAT32 import *
-
+SECTOR_SIZE = 512
 AUDIO_EXTENSIONS = {'.mp3', '.wav', '.flac', '.aac', '.ogg', '.wma', '.m4a', '.aiff', '.alac', '.opus', '.amr', '.mid', '.midi'}
 IMAGE_EXTENSIONS = {'.jpg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.heif', '.svg', '.ico', '.raw'}
 PDF_EXTENSIONS = {'.pdf'}
@@ -23,7 +23,7 @@ CODE_EXTENSIONS = {'.py', '.java', '.cpp', '.c', '.h', '.js', '.php', '.html', '
 
 
 class Entry:
-    def __init__(self, selfid, name, is_folder, parentID, size, created_date, modified_date, content, attributes, file_system):
+    def __init__(self, selfid, name, is_folder, parentID, size, created_date, modified_date, content, attributes, file_system, size_of_disk):
         self.id = selfid
         self.name = name
         self.is_folder = is_folder
@@ -34,6 +34,7 @@ class Entry:
         self.content = content
         self.attributes = attributes
         self.file_system = file_system
+        self.size_of_disk = size_of_disk
 
 class App:
     def __init__(self, root, entries):
@@ -303,7 +304,8 @@ class App:
         if entry.attributes is None:
             strAttr = entry.file_system
             self.labels['attributes'].config(text=f"File system:    {strAttr}")
-            self.labels['created'].config(text="")
+            raw_size = format(entry.size_of_disk, ",") if entry.size_of_disk is not None else "N/A"
+            self.labels['created'].config(text=f"Total size:      {self.format_size(entry.size_of_disk)} ({raw_size} Bytes)")
             self.labels['modified'].config(text="")
             self.labels['size'].config(text="")
         else:
@@ -314,9 +316,17 @@ class App:
             raw_size = format(entry.size, ",") if entry.size is not None else "N/A"
             self.labels['size'].config(text=f"Total size:      {self.format_size(entry.size)} ({raw_size} Bytes)")
 
+        # Clear content tab for folders and partitions
+        self.content_text.config(state='normal')
+        self.content_text.delete(1.0, tk.END)
+        
         if not entry.is_folder:
             self.show_file_content(entry)
-
+        else:
+            # For folders/partitions, show a message instead of leaving empty
+            self.content_text.insert(tk.END, f"This is a {'partition' if entry.attributes is None else 'folder'}.\nNo content to display.")
+        
+        self.content_text.config(state='disabled')
         self.notebook.select(self.info_tab)
 
     def show_file_content(self, entry):
@@ -384,16 +394,22 @@ class App:
                 list_file = main.get_list_file()
 
                 for entry in list_file:
-                    entries.append(Entry(entry["ID"], entry["Name"], entry["Is Folder"],
-                                     entry["Parent ID"], entry["Size"], entry["Create Time"],
-                                     entry["Modify Time"], entry["Data"], entry["Attribute"], "NTFS"))
+                    entries.append(
+                        Entry(entry["ID"], entry["Name"], entry["Is Folder"],
+                        entry["Parent ID"], entry["Size"], entry["Create Time"],
+                        entry["Modify Time"], entry["Data"], entry["Attribute"], "NTFS",
+                        partition[i].number_of_sectors * SECTOR_SIZE)
+                        )
                     
             if partition[i].type == "FAT32":
                 main = FAT32(partition[i].starting_sector, usb)
                 id_increase, arr = main.applyGUI(id_increase) 
                 for item in arr:
-                    entries.append(Entry(item["ID"], item["Name"], item["Flags"] == 16, item["Parent"], item["Size"], item["Date Created"], item["Date Modified"], item["content"], item["Attribute"], "FAT32"))
-
+                    entries.append(
+                        Entry(item["ID"], item["Name"], item["Flags"] == 16, item["Parent"], item["Size"], 
+                        item["Date Created"], item["Date Modified"], item["content"], item["Attribute"], 
+                        "FAT32", partition[i].number_of_sectors * SECTOR_SIZE)
+                        )
         fin.close()
         return entries
 
