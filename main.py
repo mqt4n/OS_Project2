@@ -204,7 +204,7 @@ class App:
             return self.pdf_icon
         elif ext in WORD_EXTENSIONS:
             return self.word_icon
-        elif ext in EXCEL_EXTENSIONS:
+        elif ext in EXCEL_EXTENSIONS    :
             return self.excel_icon
         elif ext in PPTX_EXTENSIONS:
             return self.powerpoint_icon

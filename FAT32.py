@@ -1,4 +1,3 @@
-import wmi 
 from enum import Flag, auto 
 from datetime import datetime 
 import re 
@@ -21,17 +20,18 @@ class FAT:
 				return clusterList
 			
 class Attribute(Flag):
-	READ_ONLY = auto() 
-	HIDDEN = auto()
-	SYSTEM = auto() 
-	VOLLABEL = auto() 
-	DIRECTORY = auto() 
-	ARCHIVE = auto() 
+		READ_ONLY = 1      # 0b00000001
+		HIDDEN = 2         # 0b00000010
+		SYSTEM = 4         # 0b00000100
+		VOLLABEL = 8       # 0b00001000
+		DIRECTORY = 16     # 0b00010000
+		ARCHIVE = 32       # 0b00100000
 
 class ENTRY:
 	def __init__(self, data):
 		self.data = data
 		self.name = '' 
+		num = int.from_bytes(self.data[0xB:0xC], byteorder='little')
 		self.parseEntry()
 	
 	def parseEntry(self):
@@ -109,8 +109,8 @@ class ENTRY:
 		mon = (self.dateDateCreated & 0b0000000111100000) >> 5
 		day = self.dateDateCreated & 0b0000000000011111
 
-		self.dateCreated = datetime(year, mon, day, h, m, s)
-		self.dateCreated.strftime("%A, %B %d, %Y, %I:%M:%S %p")
+		dateCreated_dt = datetime(year, mon, day, h, m, s)
+		self.dateCreated = dateCreated_dt.strftime("%A, %B %d, %Y, %I:%M:%S %p")
 
 		year = 1980 + ((self.datelastAccessed & 0b1111111000000000) >> 9)
 		mon = (self.datelastAccessed & 0b0000000111100000) >> 5
@@ -125,8 +125,8 @@ class ENTRY:
 		mon = (self.Update & 0b0000000111100000) >> 5
 		day = self.Update & 0b0000000000011111
 
-		self.dateUpdate = datetime(year, mon, day, h, m, s)
-		self.dateUpdate.strftime("%A, %B %d, %Y, %I:%M:%S %p")
+		self.dateUpdate_dt = datetime(year, mon, day, h, m, s)
+		self.dateUpdate = dateCreated_dt.strftime("%A, %B %d, %Y, %I:%M:%S %p")
 
 
 class RDET:
@@ -315,27 +315,7 @@ class FAT32:
 			return ret
 		except Exception as error:
 			raise(error)
-		
-	def changeDirectory(self, path = ""):
-		if path == "": raise Exception("Path to directory is required")
-		try:
-			CDET = self.visitDirectory(path) 
-			self.RDET = CDET
-			
-			dirs = self.parsePath(path) 
-			if dirs[0] == self.volume:
-				self.cwd.clear() 
-				self.cwd.append(self.volume)
-				dirs.pop(0)
-			
-			for d in dirs:
-				if d == "..":
-					self.cwd.pop() 
-				elif d != ".":
-					self.cwd.append(d) 
 
-		except Exception as error:
-			raise error
 	
 	def getText(self, path):
 		parts = self.parsePath(path) 
@@ -353,6 +333,8 @@ class FAT32:
 		if entry.is_directory():
 			raise Exception("Is Directory")
 		
+		if entry.extension.decode() != "TXT": return ""
+
 		str = ""
 		size = entry.sizeOfArchive
 		ind = 0
