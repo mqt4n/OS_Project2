@@ -5,6 +5,7 @@ This project is a Python-based file explorer that can read and display files and
 
 ## ✨ Features
 - Supports both NTFS and FAT32 file systems
+- Suports reading extended boot records (EBR)
 - Displays file hierarchy in a tree view
 - Shows detailed file information (name, attributes, size, dates)
 - Allows viewing text file contents
@@ -64,7 +65,6 @@ If you encounter errors:
 2. Verify you have administrator privileges
 3. Check that the drive has either NTFS or FAT32 partitions
 4. Make sure all required Python packages are installed
-5. This application only supports reading at most 3 partitions at a time.
 
 ## ©️ License
 This project is provided as-is without warranty. You are free to use and modify the code for educational purposes.

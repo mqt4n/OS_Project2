@@ -373,7 +373,6 @@ class App:
     def get_disk_data(self):
         """Function to get disk data (same as main logic)"""
         c = wmi.WMI()
-        partition = []
         entries = []
         usb = None
         id_increase = 0
@@ -387,9 +386,9 @@ class App:
 
         for i in range(4):
             par = fin.read(16)
-            partition.append(Partition(par, usb.DeviceID))
-            if partition[i].type == "NTFS":
-                main = NTFS(partition[i])
+            partition = Partition(par, usb.DeviceID, 0)
+            if partition.type == "NTFS":
+                main = NTFS(partition)
                 list_file = main.get_list_file()
 
                 for entry in list_file:
@@ -397,29 +396,51 @@ class App:
                         Entry(entry["ID"], entry["Name"], entry["Is Folder"],
                         entry["Parent ID"], entry["Size"], entry["Create Time"],
                         entry["Modify Time"], entry["Data"], entry["Attribute"], "NTFS",
-                        partition[i].number_of_sectors * SECTOR_SIZE)
+                        partition.number_of_sectors * SECTOR_SIZE)
                         )
                     
-            if partition[i].type == "FAT32":
-                main = FAT32(partition[i].starting_sector, usb)
+            elif partition.type == "FAT32":
+                main = FAT32(partition.starting_sector, usb)
                 id_increase, arr = main.applyGUI(id_increase) 
                 for item in arr:
                     entries.append(
                         Entry(item["ID"], item["Name"], item["Flags"] == 16, item["Parent"], item["Size"], 
                         item["Date Created"], item["Date Modified"], item["content"], item["Attribute"], 
-                        "FAT32", partition[i].number_of_sectors * SECTOR_SIZE)
+                        "FAT32", partition.number_of_sectors * SECTOR_SIZE)
                         )
+            elif partition.type == "EBR":
+                ext = EBR(partition)
+                list_partition = ext.get_list_of_partition()
+                for p in list_partition:
+                    if p.type == "NTFS":
+                        main = NTFS(p)
+                        list_file = main.get_list_file()
+                        for entry in list_file:
+                            entries.append(
+                                Entry(entry["ID"], entry["Name"], entry["Is Folder"],
+                                entry["Parent ID"], entry["Size"], entry["Create Time"],
+                                entry["Modify Time"], entry["Data"], entry["Attribute"], "NTFS",
+                                partition.number_of_sectors * SECTOR_SIZE)
+                                )
+                    elif p.type == "FAT32":
+                        main = FAT32(p.starting_sector, usb)
+                        id_increase, arr = main.applyGUI(id_increase) 
+                        for item in arr:
+                            entries.append(
+                                Entry(item["ID"], item["Name"], item["Flags"] == 16, item["Parent"], item["Size"], 
+                                item["Date Created"], item["Date Modified"], item["content"], item["Attribute"], 
+                                "FAT32", partition.number_of_sectors * SECTOR_SIZE)
+                                )
         fin.close()
         return entries
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = App(root, [])
-    try:
-        new_entries = app.get_disk_data()
-        app.entries = new_entries
-        app.entry_dict = {entry.id: entry for entry in new_entries}
-        app.initial()
-    except Exception as e:
-        messagebox.showerror("Initialization Error", f"Failed to load initial data:\n{str(e)}")
+    
+    new_entries = app.get_disk_data()
+    app.entries = new_entries
+    app.entry_dict = {entry.id: entry for entry in new_entries}
+    app.initial()
+
     root.mainloop()

@@ -36,23 +36,48 @@ def get_infomation(entry, list_file, volume_name, counter):
 
 
 class Partition:
-    def __init__(self, description_in_mbr, location_of_disk):
+    def __init__(self, description_in_mbr, location_of_disk, relative_starting_sector):
         self.status = (
             "bootable"
             if description_in_mbr[0] == 0x80
-            else ("non-bootable" if description_in_mbr[0] == 0x00 else "unknown")
+            else ("non-bootable" if description_in_mbr[0] == 0x00 
+            else "unknown")
         )
         self.type = (
             "FAT32"
             if description_in_mbr[4] == 0x0C
-            else ("NTFS" if description_in_mbr[4] == 0x07 else "unknown")
+            else ("NTFS" if description_in_mbr[4] == 0x07
+            else ("EBR" if description_in_mbr[4] == 0x05
+            else "unknown"))
         )
         self.number_of_sectors = int.from_bytes(description_in_mbr[12:16], "little")
-        self.starting_sector = int.from_bytes(description_in_mbr[8:12], "little")
+        self.starting_sector = relative_starting_sector+int.from_bytes(description_in_mbr[8:12], "little")
         self.location_of_disk = location_of_disk
 
-    def __str__(self):
-        return f"Status: {self.status}\nType: {self.type}\nNumber of sectors: {self.number_of_sectors}\nStarting sector: {self.starting_sector}\n"
+class EBR:
+    def __init__(self,general_information: Partition):
+        self.partition = general_information
+        self.base_extended = self.partition.starting_sector
+        self.list_of_partition = []
+        self.read_extended_partition()
+        
+    def read_extended_partition(self):
+        curLBA = 0
+        while True:
+            filein = open(self.partition.location_of_disk, "rb")
+            filein.seek((self.base_extended + curLBA) * SECTOR_SIZE)
+            partition_bytes = filein.read(512)
+            partition_extend = partition_bytes[446:462]
+            next_ebr = partition_bytes[462:478]
+            filein.close()
+            p = Partition(partition_extend, self.partition.location_of_disk, self.base_extended + curLBA)
+            self.list_of_partition.append(p)
+            if next_ebr == b'\x00' * 16:
+                break
+            curLBA = int.from_bytes(next_ebr[8:12], "little")
+    
+    def get_list_of_partition(self):
+        return self.list_of_partition
 
 class NTFS:
     counter = 0
