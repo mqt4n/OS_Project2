@@ -2,11 +2,10 @@ import os
 import wmi
 import tkinter as tk
 from tkinter import ttk, messagebox, scrolledtext
-from datetime import datetime
 from PIL import Image, ImageTk
 import math
-from NTFS import *
-from FAT32 import *
+from helper.NTFS import *
+from helper.FAT32 import *
 SECTOR_SIZE = 512
 AUDIO_EXTENSIONS = {'.mp3', '.wav', '.flac', '.aac', '.ogg', '.wma', '.m4a', '.aiff', '.alac', '.opus', '.amr', '.mid', '.midi'}
 IMAGE_EXTENSIONS = {'.jpg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.heif', '.svg', '.ico', '.raw'}

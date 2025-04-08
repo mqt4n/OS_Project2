@@ -38,10 +38,13 @@ This project is a Python-based file explorer that can read and display files and
 - Display the file hierarchy in a graphical interface
 
 ## 📂 File Structure
-- `main.py`: Main application with GUI
-- `NTFS.py`: NTFS file system parser
-- `FAT32.py`: FAT32 file system parser
-- `asset/`: Directory containing icon images
+project_name/
+├── asset/               # Contains icon images
+├── data/                # Stores temporary data files
+├── helper/              # Contains helper modules
+│   ├── `NTFS.py`          # NTFS file system parser
+│   └── `FAT32.py`         # FAT32 file system parser
+└── `main.py`              # Main GUI application
 
 ## 🎛️ Controls
 - Click on folders to expand/collapse directory structure
