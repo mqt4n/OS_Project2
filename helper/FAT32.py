@@ -1,4 +1,4 @@
-from enum import Flag, auto 
+from enum import Flag
 from datetime import datetime 
 import re 
 

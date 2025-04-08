@@ -20,10 +20,11 @@ This project is a Python-based file explorer that can read and display files and
 
 ## ⚙️ Installation
 1. Clone or download the repository
-2. Install the required packages:
+2. Install the required packages using pip:
    ```
-   pip install wmi Pillow
+   pip install -r requirements.txt
    ```
+3. Ensure you have administrator privileges to access raw disk data
 
 ## 🚀 Usage
 1. Connect a USB drive with NTFS or FAT32 partitions to your computer
@@ -38,14 +39,18 @@ This project is a Python-based file explorer that can read and display files and
 - Display the file hierarchy in a graphical interface
 
 ## 📂 File Structure
-project_name/
-├── asset/               # Contains icon images
-├── data/                # Stores temporary data files
-├── helper/              # Contains helper modules
-│   ├── `NTFS.py`          # NTFS file system parser
-│   └── `FAT32.py`         # FAT32 file system parser
-└── `main.py`              # Main GUI application
-
+OS_Project2/
+├── asset/                               # Contains icon images used in the GUI (e.g., folder, file, drive icons)
+├── data/                                # Stores temporary or intermediate data (e.g., cache, parsed metadata, etc.)
+├── helper/                              # Contains helper modules for filesystem parsing and support logic
+│   ├── __pycache__/                     # Compiled Python cache files
+│   ├── NTFS.py                          # NTFS file system parser using low-level byte analysis
+│   └── FAT32.py                         # FAT32 file system parser for legacy drive support
+├── main.py                              # Main GUI application that interacts with the user, handles file operations
+├── README.md                            # Project documentation and usage guide
+├── requirements.txt                     # Python dependencies required to run the project
+├── demo_video.txt                       # Link to demonstration video
+                          
 ## 🎛️ Controls
 - Click on folders to expand/collapse directory structure
 - Select files to view their properties and content
