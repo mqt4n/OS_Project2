@@ -3,21 +3,40 @@ from datetime import datetime
 import re 
 
 class FAT:
-	def __init__(self, data):
-		self.data = data 
-		self.elements = [] 
-
-	def getClustersChain(self, startIndex):
-		for i in range(0, len(self.data), 4):
-			self.elements.append(int.from_bytes(self.data[i:i + 4], 'little'))
-		
-		clusterList = [] 
-		while True:
-			clusterList.append(startIndex)
-			startIndex = self.elements[startIndex] 
-			""" 0x0FFFFFFF: EOF | 0x0FFFFFF7: Bad Cluster"""
-			if startIndex == 0x0FFFFFFF or startIndex == 0x0FFFFFF7:
-				return clusterList
+    EOF_MARKER = 0x0FFFFFFF 
+    BAD_CLUSTER = 0x0FFFFFF7
+    
+    def __init__(self, fat_data):
+        self.raw_data = fat_data
+        self.entries = []
+        self._parse_fat_entries()
+    
+    def _parse_fat_entries(self):
+        # FAT32 using 4 byte for entry 
+        entry_size = 4
+        for i in range(0, len(self.raw_data), entry_size):
+            entry_bytes = self.raw_data[i:i + entry_size]
+            self.entries.append(int.from_bytes(entry_bytes, byteorder='little'))
+    
+    def getClustersChain(self, start_cluster):
+        if not isinstance(start_cluster, int) or start_cluster < 0:
+            raise ValueError("Cluster negative")
+            
+        cluster_chain = []
+        current_cluster = start_cluster
+        
+        while True:
+            if current_cluster >= len(self.entries):
+                raise ValueError(f"Cluster {current_cluster} over index")
+            
+            cluster_chain.append(current_cluster)
+            
+            next_cluster = self.entries[current_cluster]
+            
+            if next_cluster in (self.EOF_MARKER, self.BAD_CLUSTER):
+                return cluster_chain
+                
+            current_cluster = next_cluster
 			
 class Attribute(Flag):
 		READ_ONLY = 1      # 0b00000001
@@ -124,8 +143,8 @@ class ENTRY:
 		mon = (self.Update & 0b0000000111100000) >> 5
 		day = self.Update & 0b0000000000011111
 
-		self.dateUpdate_dt = datetime(year, mon, day, h, m, s)
-		self.dateUpdate = dateCreated_dt.strftime("%A, %B %d, %Y, %I:%M:%S %p")
+		dateUpdate_dt = datetime(year, mon, day, h, m, s)
+		self.dateUpdate = dateUpdate_dt.strftime("%A, %B %d, %Y, %I:%M:%S %p")
 
 class RDET:
 	def __init__(self, data):
@@ -234,7 +253,6 @@ class FAT32:
 
 		for i in clusterList:
 			sectorIndex = self.clusterToSectorIndex(i)
-			# first sector do not stored data => skip them 
 			self.fin.seek((sectorIndex + self.sectorStarting) * self.bytePerSector) 
 			data += self.fin.read(self.bytePerSector * self.sectorPerCluster)
 		return data  
@@ -256,7 +274,6 @@ class FAT32:
 		path = self.parsePath(path) 
 
 		if path[0] == self.volume:
-			# CDET = self.DET[self.bootSector["Starting Cluster of RDET"]]
 			path.pop(0) 
 		CDET = self.RDET
 		

@@ -7,6 +7,7 @@ import math
 from helper.NTFS import *
 from helper.FAT32 import *
 SECTOR_SIZE = 512
+# Dèfine extention with multiple types 
 AUDIO_EXTENSIONS = {'.mp3', '.wav', '.flac', '.aac', '.ogg', '.wma', '.m4a', '.aiff', '.alac', '.opus', '.amr', '.mid', '.midi'}
 IMAGE_EXTENSIONS = {'.jpg', '.png', '.gif', '.bmp', '.tiff', '.webp', '.heif', '.svg', '.ico', '.raw'}
 PDF_EXTENSIONS = {'.pdf'}
@@ -20,7 +21,7 @@ EXECUTABLE_EXTENSIONS = {'.exe', '.msi', '.bat', '.cmd', '.ps1', '.sh'}
 VIDEO_EXTENSIONS = {'.mp4', '.avi', '.mov', '.wmv', '.flv', '.mkv', '.webm'}
 CODE_EXTENSIONS = {'.py', '.java', '.cpp', '.c', '.h', '.js', '.php', '.html', '.css', '.json', '.xml'}
 
-
+# Data using for display GUI 
 class Entry:
     def __init__(self, selfid, name, is_folder, parentID, size, created_date, modified_date, content, attributes, file_system, size_of_disk):
         self.id = selfid
@@ -37,6 +38,7 @@ class Entry:
 
 class App:
     def __init__(self, root, entries):
+        # window 
         self.root = root
         self.root.title("[23127115 - 23127334] File Explorer")
         self.root.geometry("900x600")
@@ -45,6 +47,7 @@ class App:
         self.entries = entries
         self.entry_dict = {entry.id: entry for entry in entries}
         
+        # Label for display information of file 
         self.labels = {
             'name': None,
             'attributes': None,
@@ -58,15 +61,19 @@ class App:
         self.create_main_ui()
         self.initial()
 
+    # Set up GUI styling
     def configure_style(self):
         self.style = ttk.Style()
+        # background colour 
         self.root.tk_setPalette(background="#f7f9fc")
 
+        # Tree view styling
         self.style.configure("TFrame", background="#f7f9fc")
         self.style.configure("TLabel", background="#f7f9fc", foreground="#222", font=("Segoe UI", 10))
         self.style.configure("Treeview", background="#ffffff", fieldbackground="#ffffff", foreground="#333", font=("Segoe UI", 10))
         self.style.map("Treeview", background=[("selected", "#d0e7ff")], foreground=[("selected", "#000")])
         
+        # NoteBook
         self.style.configure("TNotebook", background="#f7f9fc", borderwidth=0)
         self.style.configure("TNotebook.Tab", 
                             background="#e6f0ff", 
@@ -75,6 +82,7 @@ class App:
                             font=("Segoe UI", 10, "bold"))
         self.style.map("TNotebook.Tab", background=[("selected", "#cde5ff")])
 
+        # Scrollbar and Buttn styling
         self.style.configure("TScrollbar", background="#d1e0ff", arrowcolor="#4da3ff")
         self.style.configure("TButton", font=("Segoe UI", 9), padding=6)
         self.style.map("TButton",
@@ -126,7 +134,9 @@ class App:
         self.video_icon = ImageTk.PhotoImage(video_img)
         self.code_icon = ImageTk.PhotoImage(code_img)
 
+    # Divise main background into panels 
     def create_main_ui(self):
+
         self.paned_window = tk.PanedWindow(self.root, orient=tk.HORIZONTAL, bg="white",
                                            sashwidth=5, sashrelief=tk.RAISED, sashpad=2, opaqueresize=False)
         self.paned_window.pack(fill=tk.BOTH, expand=True)
@@ -143,22 +153,27 @@ class App:
             command=self.refresh_data,
             style="TButton"
         )
+
         self.refresh_btn.pack(side=tk.TOP, fill=tk.X, padx=5, pady=5)
         
         # Add treeview below button
         self.tree = ttk.Treeview(self.tree_frame)
         self.tree.pack(fill=tk.BOTH, expand=True, padx=5, pady=(0,5))
+        # binld event with act 
         self.tree.bind("<<TreeviewOpen>>", self.on_folder_open)
         self.tree.bind("<<TreeviewClose>>", self.on_folder_close)
         self.tree.bind("<<TreeviewSelect>>", self.show_entry_info)
 
+
+        # create frame store notebook 
         self.detail_frame = tk.Frame(self.paned_window, bg="white", bd=2, relief=tk.GROOVE)
         self.notebook = ttk.Notebook(self.detail_frame)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         self.info_tab = tk.Frame(self.notebook, bg="white")
         self.notebook.add(self.info_tab, text="Information")
-        
+
+        # Label for display file information 
         self.labels['name'] = tk.Label(self.info_tab, text="", anchor='w', bg="white", font=("Segoe UI", 10))
         self.labels['attributes'] = tk.Label(self.info_tab, text="", anchor='w', bg="white", font=("Segoe UI", 10))
         self.labels['created'] = tk.Label(self.info_tab, text="", anchor='w', bg="white", font=("Segoe UI", 10))
@@ -168,6 +183,7 @@ class App:
         for i, label in enumerate(self.labels.values()):
             label.grid(row=i, column=0, sticky='ew', padx=5, pady=2)
 
+        # created content tab for displaying file contents 
         self.content_tab = tk.Frame(self.notebook, bg="white")
         self.notebook.add(self.content_tab, text="Content")
         self.content_text = scrolledtext.ScrolledText(
@@ -181,6 +197,7 @@ class App:
             highlightbackground="#4da3ff",
             highlightthickness=1
         )
+
         self.content_text.pack(fill=tk.BOTH, expand=True, padx=5, pady=5)
 
         self.paned_window.add(self.tree_frame)
