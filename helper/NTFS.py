@@ -211,6 +211,13 @@ class Atribute_File_Name:
         # 1 Character = 2 bytes
         self.name = FN_bytes[66 : 66 + self.length_of_name * 2].decode("utf-16le")
         self.extension = self.name.split(".")[-1] if "." in self.name else None
+        
+def decode_signed_offset(bytes):
+    if not bytes:
+        return 0
+    sign_byte = bytes[-1]
+    pad = b'\xFF' * (8 - len(bytes)) if sign_byte & 0x80 else b'\x00' * (8 - len(bytes))
+    return int.from_bytes(bytes + pad, 'little', signed=True)
 
 class Cluster_runlist:
     def __init__(self, runlist_bytes, bytes_per_cluster):
@@ -229,10 +236,8 @@ class Cluster_runlist:
             length_cluster = header & 0x0F
             offset_cluster = (header >> 4) & 0x0F
             length = int.from_bytes(rbytes[1 : 1 + length_cluster], "little")
-            offset = int.from_bytes(
-                rbytes[length_cluster+1 : 1 + length_cluster + offset_cluster],
-                "little",
-            )
+            offset_bytes = rbytes[1 + length_cluster : 1 + length_cluster + offset_cluster]
+            offset = decode_signed_offset(offset_bytes)
             real_offset += offset
             self.runlist.append(
                 (
