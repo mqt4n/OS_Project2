@@ -31,7 +31,6 @@ class ENTRY:
 	def __init__(self, data):
 		self.data = data
 		self.name = '' 
-		num = int.from_bytes(self.data[0xB:0xC], byteorder='little')
 		self.parseEntry()
 	
 	def parseEntry(self):
@@ -138,9 +137,7 @@ class RDET:
 	def getEntryName(self):
 		name = ''
 		entries: list[ENTRY] = [] 
-		cnt = 0
 		for i in range(0, len(self.data), 32):
-			cnt += 1
 			entries.append(ENTRY(self.data[i: i + 32])) 
 			if entries[-1].is_empty or entries[-1].is_delete:
 				name = "" 
@@ -211,6 +208,7 @@ class FAT32:
 		# DET stores information about subfolders, unlike RDET which only manages entries in the root directory.
 		self.DET[clusterIndex] = self.RDET
 
+		# Get volume label 
 		for item in self.RDET.entries:
 			if item.is_label and not item.is_subEntry:
 				self.volume = item.name
@@ -224,12 +222,13 @@ class FAT32:
 		self.bootSector['Sectors In Volume'] = int.from_bytes(self.data[0x20:0x24], 'little')
 		self.bootSector['Sectors Per FAT'] = int.from_bytes(self.data[0x24:0x28], 'little')
 		self.bootSector['Starting Cluster of RDET'] = int.from_bytes(self.data[0x2C:0x30], 'little')
-		self.bootSector['FAT Name'] = self.data[0x52:0x59]
+		self.bootSector['FAT Name'] = self.data[0x52:0x59] 
 		self.bootSector['Starting Sector of Data'] = self.bootSector['Reserved Sectors'] + self.bootSector['Number of FATs'] * self.bootSector['Sectors Per FAT']
 
 	def clusterToSectorIndex(self, index):
 		return self.numberOfFat * self.sectorPerFat + self.reservedSectors + (index - 2) * self.sectorPerCluster
 	
+
 	def getClusterS(self, index): 
 		clusterList = self.FATList[0].getClustersChain(index)
 		data = b"" 
@@ -374,6 +373,7 @@ class FAT32:
 		entries.append(obj)
 		stored.append(obj) 
 
+		# define id, name, parent for each entry 
 		while len(stored) != 0:
 			entry = stored.pop(0)
 			entry["ID"] = "FAT32_" + str(num)
@@ -385,6 +385,7 @@ class FAT32:
 				entry["Path"] += "//" + entry["Name"]
 			
 			if entry["Flags"] == 16:
+				entry["Size"] = 0;
 				for item in self.getDirectory(entry["Path"]):
 					if item["Name"] not in [".", ".."]:
 						item["Parent"] = entry["ID"]
@@ -393,7 +394,25 @@ class FAT32:
 						item["Path"] = entry["Path"]
 			elif entry["Flags"] == 32:
 				entry["content"] = self.getText(entry["Path"])
+		
 
+		# Get total size 
+		def defineSize(entry, entries):
+			childrent = [e for e in entries if entry["ID"] == e["Parent"]]
+			total_size = 0
+			for child in childrent:
+				if child["Flags"] == 32:
+					total_size += child["Size"] 
+				else: 
+					total_size += defineSize(child, entries)
+			
+			entry["Size"] = total_size
+			return total_size
+		
+		for entry in entries:
+			if entry["Parent"] is None:
+				defineSize(entry, entries)
+	
 		return num, entries
 
 				
