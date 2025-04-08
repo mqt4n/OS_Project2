@@ -40,7 +40,7 @@ This project is a Python-based file explorer that can read and display files and
 - Display the file hierarchy in a graphical interface
 
 ## 📂 File Structure
-- asset/: Directory containing icon images
+- assets/: Directory containing icon images
 - data/: Directory for storing temporary data files
 - helper/'
    - `NTFS.py`: NTFS file system parser
