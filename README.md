@@ -39,17 +39,7 @@ This project is a Python-based file explorer that can read and display files and
 - Display the file hierarchy in a graphical interface
 
 ## 📂 File Structure
-OS_Project2/
-├── asset/                               # Contains icon images used in the GUI (e.g., folder, file, drive icons)
-├── data/                                # Stores temporary or intermediate data (e.g., cache, parsed metadata, etc.)
-├── helper/                              # Contains helper modules for filesystem parsing and support logic
-│   ├── __pycache__/                     # Compiled Python cache files
-│   ├── NTFS.py                          # NTFS file system parser using low-level byte analysis
-│   └── FAT32.py                         # FAT32 file system parser for legacy drive support
-├── main.py                              # Main GUI application that interacts with the user, handles file operations
-├── README.md                            # Project documentation and usage guide
-├── requirements.txt                     # Python dependencies required to run the project
-├── demo_video.txt                       # Link to demonstration video
+<pre> ```markdown OS_Project2/ ├── asset/ # Contains icon images used in the GUI (e.g., folder, file, drive icons) ├── data/ # Stores temporary or intermediate data (e.g., cache, parsed metadata, etc.) ├── helper/ # Contains helper modules for filesystem parsing and support logic │ ├── __pycache__/ # Compiled Python cache files │ ├── NTFS.py # NTFS file system parser using low-level byte analysis │ └── FAT32.py # FAT32 file system parser for legacy drive support ├── main.py # Main GUI application that interacts with the user, handles file operations ├── README.md # Project documentation and usage guide ├── requirements.txt # Python dependencies required to run the project ├── demo_video.txt # Link to demonstration video ``` </pre>
                           
 ## 🎛️ Controls
 - Click on folders to expand/collapse directory structure
