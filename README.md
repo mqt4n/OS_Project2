@@ -39,6 +39,7 @@ This project is a Python-based file explorer that can read and display files and
 - Display the file hierarchy in a graphical interface
 
 ## 📂 File Structure
+
 HASHIWOKAKERO/
 |── data/                               # Store data that related to logic and solving problem of each algorithms.
 │   ├── astar/     
@@ -63,7 +64,7 @@ HASHIWOKAKERO/
 ├── main.py                             # Entry point of the program.
 ├── README.md
 ├── requirement.txt                     # Dependencies for the project.   
-├── demo_video.txt                      # Show Video's URL                            
+├── demo_video.txt                      # Show Video's URL                              
                           
 ## 🎛️ Controls
 - Click on folders to expand/collapse directory structure
