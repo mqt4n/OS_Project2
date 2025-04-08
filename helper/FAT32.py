@@ -127,7 +127,6 @@ class ENTRY:
 		self.dateUpdate_dt = datetime(year, mon, day, h, m, s)
 		self.dateUpdate = dateCreated_dt.strftime("%A, %B %d, %Y, %I:%M:%S %p")
 
-
 class RDET:
 	def __init__(self, data):
 		self.data = data
@@ -305,6 +304,7 @@ class FAT32:
 				obj["Parent"] = self.volume
 				obj["content"] = ""
 				obj["Attribute"] =  [attr.name for attr in Attribute if attr in entry.attribute]
+				obj["Total Size"] = self.bootSector["Sectors In Volume"] * self.bytePerSector
 
 				if entry.startCluster == 0:
 					obj["sector"] = (entry.startCluster + 2) * self.sectorPerCluster
@@ -366,7 +366,8 @@ class FAT32:
 			"Path": "",
 			"Parent": None,
 			"content": "",
-			"Attribute": None
+			"Attribute": None,
+			"Total Size": self.bootSector["Sectors In Volume"] * self.bytePerSector,
 		}
 		num += 1
 
@@ -414,5 +415,3 @@ class FAT32:
 				defineSize(entry, entries)
 	
 		return num, entries
-
-				

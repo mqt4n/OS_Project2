@@ -1,5 +1,4 @@
 from datetime import datetime
-
 SECTOR_SIZE = 512
 WIN_EPOCH = 116444736000000000
 
@@ -21,7 +20,7 @@ def get_parent_name(parent_id, list_file, volume_name):
             return entry.get_file_name()
     return None
         
-def get_infomation(entry, list_file, volume_name, counter):
+def get_infomation(entry, list_file, volume_name, counter, total_sectors):
     return {
         "ID": str(counter)+"NTFS"+str(entry.get_id()),
         "Name": entry.get_file_name(),
@@ -32,8 +31,8 @@ def get_infomation(entry, list_file, volume_name, counter):
         "Modify Time": entry.get_modify_time(),
         "Data": entry.get_data(),
         "Attribute": entry.get_attributes(),
+        "Total Size": total_sectors,
     }
-
 
 class Partition:
     def __init__(self, description_in_mbr, location_of_disk, relative_starting_sector):
@@ -137,31 +136,6 @@ class NTFS:
                 self.master_file_table.append(entry)
         self.list_file.append((5,None, self.volume_name))  # Add root node
         fin.close()
-
-    def build_tree(self):
-        # First create all nodes
-        for id, parent_id, name in self.list_file:
-            self.nodes[id] = Node(id, self.volume_name if id == 5 else name)
-
-        # Then build parent-child relationships
-        for id, parent_id, name in self.list_file:
-            if parent_id in self.nodes and parent_id != id:  # Prevent self-parenting
-                self.nodes[parent_id].add_child(self.nodes[id])
-
-        # Return the root node (assuming root has id=5)
-        return self.nodes.get(5, None)
-
-    def print_tree(self):
-        root = self.build_tree()
-        if root:
-            root.print_tree()
-        else:
-            print("No root node found")
-            
-    def print_info_file(self):
-        for entry in self.master_file_table:
-            print(entry.get_info())
-            print()
             
     def get_list_file(self):
         tmp = []
@@ -176,48 +150,13 @@ class NTFS:
                 "Modify Time": None,
                 "Data": None,
                 "Attribute": None,
+                "Total Size": self.volume_boot_record.total_sectors*512,
             }
         )
         for entry in self.master_file_table:
             if entry.check_file():
-                tmp.append(get_infomation(entry, self.master_file_table, self.volume_name, NTFS.counter))
+                tmp.append(get_infomation(entry, self.master_file_table, self.volume_name, NTFS.counter, self.volume_boot_record.total_sectors*512))
         return tmp
-
-class Node:
-    def __init__(self, my_id, name):
-        self.id = my_id
-        self.name = name
-        self.children = []
-
-    def add_child(self, child):
-        self.children.append(child)
-
-    def get_id(self):
-        return self.id
-
-    def get_children(self):
-        return self.children
-
-    def print_tree(self, indent=0, parent_prefix=""):
-        """Recursively prints the tree structure with proper indentation"""
-        # Current line prefix
-        if indent == 0:
-            prefix = ""
-        else:
-            prefix = parent_prefix + ("└── " if self.is_last else "├── ")
-        
-        print(f"{prefix}{self.name}")
-
-        # Prepare prefix for children
-        if indent > 0:
-            child_prefix = parent_prefix + ("    " if self.is_last else "│   ")
-        else:
-            child_prefix = ""
-
-        # Print children
-        for i, child in enumerate(self.children):
-            child.is_last = (i == len(self.children) - 1)
-            child.print_tree(indent + 1, child_prefix)
 
 class NTFS_Volume_Boot_Record:
     def __init__(self, starting_byte, location_of_disk):

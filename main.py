@@ -396,7 +396,7 @@ class App:
                         Entry(entry["ID"], entry["Name"], entry["Is Folder"],
                         entry["Parent ID"], entry["Size"], entry["Create Time"],
                         entry["Modify Time"], entry["Data"], entry["Attribute"], "NTFS",
-                        partition.number_of_sectors * SECTOR_SIZE)
+                        entry["Total Size"])
                         )
                     
             elif partition.type == "FAT32":
@@ -406,7 +406,7 @@ class App:
                     entries.append(
                         Entry(item["ID"], item["Name"], item["Flags"] == 16, item["Parent"], item["Size"], 
                         item["Date Created"], item["Date Modified"], item["content"], item["Attribute"], 
-                        "FAT32", partition.number_of_sectors * SECTOR_SIZE)
+                        "FAT32", item["Total Size"])
                         )
             elif partition.type == "EBR":
                 ext = EBR(partition)
@@ -420,8 +420,8 @@ class App:
                                 Entry(entry["ID"], entry["Name"], entry["Is Folder"],
                                 entry["Parent ID"], entry["Size"], entry["Create Time"],
                                 entry["Modify Time"], entry["Data"], entry["Attribute"], "NTFS",
-                                partition.number_of_sectors * SECTOR_SIZE)
-                                )
+                                entry["Total Size"])
+                            )
                     elif p.type == "FAT32":
                         main = FAT32(p.starting_sector, usb)
                         id_increase, arr = main.applyGUI(id_increase) 
@@ -429,7 +429,7 @@ class App:
                             entries.append(
                                 Entry(item["ID"], item["Name"], item["Flags"] == 16, item["Parent"], item["Size"], 
                                 item["Date Created"], item["Date Modified"], item["content"], item["Attribute"], 
-                                "FAT32", partition.number_of_sectors * SECTOR_SIZE)
+                                "FAT32", item["Total Size"])
                                 )
         fin.close()
         return entries
